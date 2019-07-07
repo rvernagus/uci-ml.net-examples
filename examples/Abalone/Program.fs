@@ -5,7 +5,28 @@ open System.IO
 open System.Net
 
 
+let printCvResultMetrics (cvResults : TrainCatalogBase.CrossValidationResult<RegressionMetrics> seq) =
+    printfn "------------------\nCross Validation Metrics\n------------------"
+    cvResults
+    |> Seq.map (fun cvResult -> cvResult.Metrics.MeanAbsoluteError)
+    |> Seq.average
+    |> printfn "Mean Absolute Error: %f"
+    cvResults
+    |> Seq.map (fun cvResult -> cvResult.Metrics.MeanSquaredError)
+    |> Seq.average
+    |> printfn "Mean Squared Error: %f"
+    cvResults
+    |> Seq.map (fun cvResult -> cvResult.Metrics.RootMeanSquaredError)
+    |> Seq.average
+    |> printfn "Root Mean Squared Error: %f"
+    cvResults
+    |> Seq.map (fun cvResult -> cvResult.Metrics.RSquared)
+    |> Seq.average
+    |> printfn "R-squared: %f"
+    cvResults
+
 let printMetrics (metrics : RegressionMetrics) =
+    printfn "------------------\nTest Metrics\n------------------"
     printfn "Mean Absolute Error: %f" metrics.MeanAbsoluteError
     printfn "Mean Squared Error: %f" metrics.MeanSquaredError
     printfn "Root Mean Squared Error: %f" metrics.RootMeanSquaredError
@@ -20,7 +41,7 @@ let onehot (context : MLContext) (column : string) =
 let concatenate (context : MLContext) outputColumnName inputColumnNames =
     context.Transforms.Concatenate(outputColumnName = outputColumnName, inputColumnNames = inputColumnNames)
     
-let lpNorm (context : MLContext) inputColumn outputColumn =
+let normalize (context : MLContext) inputColumn outputColumn =
     context.Transforms.NormalizeLpNorm(outputColumnName = outputColumn, inputColumnName = inputColumn)
     
 let downcastEstimator (e : IEstimator<'a>) =
@@ -51,7 +72,7 @@ let main argv =
         |> Seq.map (onehot context)
         |> Seq.fold append (EstimatorChain())
         |> append <| concatenate context "Features" featureColumns
-        |> append <| lpNorm context "Features" "FeaturesNorm"
+        |> append <| normalize context "Features" "FeaturesNorm"
         |> (fun pipeline -> pipeline.Fit(trainDataView))
 
     let transformedTrainData = transformer.Transform(trainDataView)
@@ -61,6 +82,7 @@ let main argv =
     let finalEstimator = downcastEstimator estimator
     
     context.Regression.CrossValidate(transformedTrainData, finalEstimator, numberOfFolds = 3)
+    |> printCvResultMetrics
     |> Seq.maxBy (fun cvResult -> cvResult.Metrics.RSquared)
     |> fun cvResult -> cvResult.Model
     |> fun model -> model.Transform(transformedTestData)
