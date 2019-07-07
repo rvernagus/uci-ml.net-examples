@@ -21,6 +21,11 @@ let mapValue (context : MLContext)  outputColumnName (keyValuePairs : IEnumerabl
 let bin (context : MLContext)  inputColumn outputColumn =
     context.Transforms.NormalizeBinning(outputColumnName = outputColumn, inputColumnName = inputColumn)
 
+let downcastEstimator (e : IEstimator<'a>) =
+    match e with
+    | :? IEstimator<ITransformer> as p -> p
+    | _ -> failwith "The estimator has to be an instance of IEstimator<ITransformer>."
+
 let printMetrics (metrics : CalibratedBinaryClassificationMetrics) =
     printfn "Accuracy: %f" metrics.Accuracy
     printfn "Log Loss: %f" metrics.LogLoss
@@ -70,10 +75,6 @@ let main argv =
     let transformedTestData = transformer.Transform(testDataView)
     
     let estimator = context.BinaryClassification.Trainers.SdcaLogisticRegression(featureColumnName = "FeaturesNorm")
-    let downcastEstimator (e : IEstimator<'a>) =
-        match e with
-        | :? IEstimator<ITransformer> as p -> p
-        | _ -> failwith "The estimator has to be an instance of IEstimator<ITransformer>."
     let finalEstimator = downcastEstimator estimator
     
     context.BinaryClassification.CrossValidate(transformedTrainData, finalEstimator, numberOfFolds = 3)
