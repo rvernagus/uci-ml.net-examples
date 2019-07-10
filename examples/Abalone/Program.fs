@@ -81,12 +81,13 @@ let main argv =
     let estimator = context.Regression.Trainers.LbfgsPoissonRegression(featureColumnName = "FeaturesNorm")
     let finalEstimator = downcastEstimator estimator
     
-    context.Regression.CrossValidate(transformedTrainData, finalEstimator, numberOfFolds = 3)
-    |> printCvResultMetrics
-    |> Seq.maxBy (fun cvResult -> cvResult.Metrics.RSquared)
-    |> fun cvResult -> cvResult.Model
-    |> fun model -> model.Transform(transformedTestData)
-    |> context.Regression.Evaluate
-    |> printMetrics
+    do
+        context.Regression.CrossValidate(transformedTrainData, finalEstimator, numberOfFolds = 3)
+        |> printCvResultMetrics
+        |> Seq.maxBy (fun cvResult -> cvResult.Metrics.RSquared)
+        |> fun cvResult -> cvResult.Model
+        |> fun model -> model.Transform(transformedTestData)
+        |> context.Regression.Evaluate
+        |> printMetrics
 
     0
