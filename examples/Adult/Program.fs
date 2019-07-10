@@ -6,6 +6,22 @@ open System.Net
 open System.Collections.Generic
 
 
+let printCvResultMetrics (cvResults : TrainCatalogBase.CrossValidationResult<CalibratedBinaryClassificationMetrics> seq) =
+    printfn "------------------\nCross Validation Metrics\n------------------"
+    cvResults
+    |> Seq.map (fun cvResult -> cvResult.Metrics.Accuracy)
+    |> Seq.average
+    |> printfn "Accuracy: %f"
+    cvResults
+    |> Seq.map (fun cvResult -> cvResult.Metrics.AreaUnderRocCurve)
+    |> Seq.average
+    |> printfn "Area Under Roc Curve: %f"
+    cvResults
+    |> Seq.map (fun cvResult -> cvResult.Metrics.F1Score)
+    |> Seq.average
+    |> printfn "F1 Score: %f"
+    cvResults
+
 let append (chain : EstimatorChain<'T>) transform =
     chain.Append(transform)
 
@@ -27,6 +43,7 @@ let downcastEstimator (e : IEstimator<'a>) =
     | _ -> failwith "The estimator has to be an instance of IEstimator<ITransformer>."
 
 let printMetrics (metrics : CalibratedBinaryClassificationMetrics) =
+    printfn "------------------\nTest Metrics\n------------------"
     printfn "Accuracy: %f" metrics.Accuracy
     printfn "Log Loss: %f" metrics.LogLoss
     printfn "Area Under ROC Curve: %f" metrics.AreaUnderRocCurve
@@ -77,10 +94,12 @@ let main argv =
     let estimator = context.BinaryClassification.Trainers.SdcaLogisticRegression(featureColumnName = "FeaturesNorm")
     let finalEstimator = downcastEstimator estimator
     
-    context.BinaryClassification.CrossValidate(transformedTrainData, finalEstimator, numberOfFolds = 3)
-    |> Seq.maxBy (fun cvResult -> cvResult.Metrics.Accuracy)
-    |> fun cvResult -> cvResult.Model.Transform(transformedTestData)
-    |> context.BinaryClassification.Evaluate
-    |> printMetrics
+    do
+        context.BinaryClassification.CrossValidate(transformedTrainData, finalEstimator, numberOfFolds = 3)
+        |> printCvResultMetrics
+        |> Seq.maxBy (fun cvResult -> cvResult.Metrics.Accuracy)
+        |> fun cvResult -> cvResult.Model.Transform(transformedTestData)
+        |> context.BinaryClassification.Evaluate
+        |> printMetrics
 
     0
