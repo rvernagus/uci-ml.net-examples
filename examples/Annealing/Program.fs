@@ -17,10 +17,20 @@ let concatenate (context : MLContext) outputColumnName inputColumnNames =
 let mapValueToKey (context : MLContext) sourceColumn destinationColumn =
     context.Transforms.Conversion.MapValueToKey(inputColumnName = sourceColumn, outputColumnName = destinationColumn)
 
-let minMax (context : MLContext) inputColumn outputColumn =
-    context.Transforms.NormalizeMinMax(outputColumnName = outputColumn, inputColumnName = inputColumn)
+let printCvResultMetrics (cvResults : TrainCatalogBase.CrossValidationResult<MulticlassClassificationMetrics> seq) =
+    printfn "------------------\nCross Validation Metrics\n------------------"
+    cvResults
+    |> Seq.map (fun cvResult -> cvResult.Metrics.MacroAccuracy)
+    |> Seq.average
+    |> printfn "Accuracy: %f"
+    cvResults
+    |> Seq.map (fun cvResult -> cvResult.Metrics.LogLoss)
+    |> Seq.average
+    |> printfn "Log Loss: %f"
+    cvResults
 
 let printMetrics (metrics : MulticlassClassificationMetrics) =
+    printfn "------------------\nTest Metrics\n------------------"
     printfn "Accuracy: %f" metrics.MacroAccuracy
     printfn "Log Loss: %f" metrics.LogLoss
     printfn "Confusion Matrix:"
@@ -72,8 +82,7 @@ let main argv =
         |> Seq.fold append (EstimatorChain())
         |> append <| mapValueToKey context "Label" "Label"
         |> append <| concatenate context "Features" featureColumns
-        |> append <| minMax context "Features" "FeaturesNorm"
-        |> (fun pipeline -> pipeline.Fit(trainDataView))
+        |> fun pipeline -> pipeline.Fit(trainDataView)
 
     let transformedTrainData = transformer.Transform(trainDataView)
     let transformedTestData = transformer.Transform(testDataView)
@@ -81,10 +90,12 @@ let main argv =
     let estimator = context.MulticlassClassification.Trainers.LbfgsMaximumEntropy(featureColumnName = "Features")
     let finalEstimator = downcastEstimator estimator
 
-    context.MulticlassClassification.CrossValidate(transformedTrainData, finalEstimator, numberOfFolds = 3)
-    |> Seq.maxBy (fun cvResult -> cvResult.Metrics.MacroAccuracy)
-    |> fun cvResult -> cvResult.Model.Transform(transformedTestData)
-    |> context.MulticlassClassification.Evaluate
-    |> printMetrics
+    do
+        context.MulticlassClassification.CrossValidate(transformedTrainData, finalEstimator, numberOfFolds = 3)
+        |> printCvResultMetrics
+        |> Seq.maxBy (fun cvResult -> cvResult.Metrics.MacroAccuracy)
+        |> fun cvResult -> cvResult.Model.Transform(transformedTestData)
+        |> context.MulticlassClassification.Evaluate
+        |> printMetrics
 
     0
