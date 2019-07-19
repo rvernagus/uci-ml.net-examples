@@ -6,31 +6,38 @@ open System.Net
 
 
 let printCvResultMetrics (cvResults : TrainCatalogBase.CrossValidationResult<RegressionMetrics> seq) =
-    printfn "------------------\nCross Validation Metrics\n------------------"
-    cvResults
-    |> Seq.map (fun cvResult -> cvResult.Metrics.MeanAbsoluteError)
-    |> Seq.average
-    |> printfn "Mean Absolute Error: %f"
-    cvResults
-    |> Seq.map (fun cvResult -> cvResult.Metrics.MeanSquaredError)
-    |> Seq.average
-    |> printfn "Mean Squared Error: %f"
-    cvResults
-    |> Seq.map (fun cvResult -> cvResult.Metrics.RootMeanSquaredError)
-    |> Seq.average
-    |> printfn "Root Mean Squared Error: %f"
-    cvResults
-    |> Seq.map (fun cvResult -> cvResult.Metrics.RSquared)
-    |> Seq.average
-    |> printfn "R-squared: %f"
+    do
+        printfn "------------------\nCross Validation Metrics\n------------------"
+        cvResults
+        |> Seq.map (fun cvResult -> cvResult.Metrics.MeanAbsoluteError)
+        |> Seq.average
+        |> printfn "Mean Absolute Error: %f"; cvResults
+        |> Seq.map (fun cvResult -> cvResult.Metrics.MeanSquaredError)
+        |> Seq.average
+        |> printfn "Mean Squared Error: %f"; cvResults
+        |> Seq.map (fun cvResult -> cvResult.Metrics.RootMeanSquaredError)
+        |> Seq.average
+        |> printfn "Root Mean Squared Error: %f"; cvResults
+        |> Seq.map (fun cvResult -> cvResult.Metrics.RSquared)
+        |> Seq.average
+        |> printfn "R-squared: %f"
+
     cvResults
 
 let printMetrics (metrics : RegressionMetrics) =
-    printfn "------------------\nTest Metrics\n------------------"
-    printfn "Mean Absolute Error: %f" metrics.MeanAbsoluteError
-    printfn "Mean Squared Error: %f" metrics.MeanSquaredError
-    printfn "Root Mean Squared Error: %f" metrics.RootMeanSquaredError
-    printfn "R-squared: %f" metrics.RSquared
+    do
+        printfn "------------------\nTest Metrics\n------------------"
+        printfn "Mean Absolute Error: %f" metrics.MeanAbsoluteError
+        printfn "Mean Squared Error: %f" metrics.MeanSquaredError
+        printfn "Root Mean Squared Error: %f" metrics.RootMeanSquaredError
+        printfn "R-squared: %f" metrics.RSquared
+
+let shuffle (context : MLContext) dataView =
+    context.Data.ShuffleRows(dataView)
+
+let split (context : MLContext) testFraction dataView =
+    let splitData = context.Data.TrainTestSplit(dataView, testFraction = testFraction)
+    splitData.TrainSet, splitData.TestSet
 
 let append (chain : EstimatorChain<'T>) transform =
     chain.Append(transform)
@@ -49,6 +56,16 @@ let downcastEstimator (e : IEstimator<'a>) =
     | :? IEstimator<ITransformer> as p -> p
     | _ -> failwith "The estimator has to be an instance of IEstimator<ITransformer>."
 
+let makeEstimator (context : MLContext) featureColumnName =
+    context.Regression.Trainers.LbfgsPoissonRegression(featureColumnName = featureColumnName)
+    |> downcastEstimator
+
+let transform (transformer : ITransformer) dataView =
+    transformer.Transform(dataView)
+
+let crossValidate (context : MLContext) estimator numberOfFolds dataView =
+    context.Regression.CrossValidate(dataView, estimator, numberOfFolds = numberOfFolds)
+
 
 [<EntryPoint>]
 let main argv =
@@ -61,33 +78,29 @@ let main argv =
     let allDataView = context.Data.LoadFromTextFile<AbaloneData>("abalone.data", hasHeader = false, separatorChar = ',')
     
     let trainDataView, testDataView =
-        let shuffledData = context.Data.ShuffleRows(allDataView)
-        let split = context.Data.TrainTestSplit(shuffledData, testFraction = 0.2)
-        split.TrainSet, split.TestSet
+        shuffle context allDataView
+        |> split context 0.2
     
     let featureColumns = [| "Sex"; "Length"; "Diameter"; "Height"; "WholeWeight"; "ShuckedWeight"; "VisceraWeight"; "ShellWeight" |]
 
     let transformer =
-        [ "Sex" ]
-        |> Seq.map (onehot context)
-        |> Seq.fold append (EstimatorChain())
+        EstimatorChain()
+        |> append <| onehot context "Sex" // one-hot encode the Sex feature
         |> append <| concatenate context "Features" featureColumns
         |> append <| normalize context "Features" "FeaturesNorm"
         |> (fun pipeline -> pipeline.Fit(trainDataView))
 
-    let transformedTrainData = transformer.Transform(trainDataView)
-    let transformedTestData = transformer.Transform(testDataView)
-    
-    let estimator = context.Regression.Trainers.LbfgsPoissonRegression(featureColumnName = "FeaturesNorm")
-    let finalEstimator = downcastEstimator estimator
+    let estimator = makeEstimator context "FeaturesNorm"
     
     do
-        context.Regression.CrossValidate(transformedTrainData, finalEstimator, numberOfFolds = 3)
-        |> printCvResultMetrics
-        |> Seq.maxBy (fun cvResult -> cvResult.Metrics.RSquared)
+        trainDataView // Begin with the training data
+        |> transform transformer // Transform using the transformer built above
+        |> crossValidate context estimator 3 // 3-fold cross-validation
+        |> printCvResultMetrics // Print cross-fold metrics
+        |> Seq.maxBy (fun cvResult -> cvResult.Metrics.RSquared) // Select the best model by R-squared
         |> fun cvResult -> cvResult.Model
-        |> fun model -> model.Transform(transformedTestData)
-        |> context.Regression.Evaluate
+        |> transform <| transform transformer testDataView // Transform the test data and get predictions
+        |> context.Regression.Evaluate // Get test metrics
         |> printMetrics
 
     0
