@@ -86,9 +86,9 @@ let main argv =
     let transformer =
         EstimatorChain()
         |> append <| onehot context "Sex" // one-hot encode the Sex feature
-        |> append <| concatenate context "Features" featureColumns
-        |> append <| normalize context "Features" "FeaturesNorm"
-        |> (fun pipeline -> pipeline.Fit(trainDataView))
+        |> append <| concatenate context "Features" featureColumns // Concatenate feature columns into a single new column
+        |> append <| normalize context "Features" "FeaturesNorm" // Normalize features into a new column, FeaturesNorm
+        |> (fun pipeline -> pipeline.Fit(trainDataView)) // Fit our pipeline on the training data
 
     let estimator = makeEstimator context "FeaturesNorm"
     
