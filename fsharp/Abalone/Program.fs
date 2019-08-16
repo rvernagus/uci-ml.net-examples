@@ -103,4 +103,32 @@ let main argv =
         |> context.Regression.Evaluate // Get test metrics
         |> printMetrics
 
+
+
+    let pipeline = 
+        EstimatorChain()
+        |> append <| onehot context "Sex" // one-hot encode the Sex feature
+        |> append <| concatenate context "Features" featureColumns // Concatenate feature columns into a single new column
+        |> append <| normalize context "Features" "FeaturesNorm" // Normalize features into a new column, FeaturesNorm
+
+    let model =
+        trainDataView // Begin with the training data
+        |> transform transformer // Transform using the transformer built above
+        |> crossValidate context estimator 3 // 3-fold cross-validation
+        |> printCvResultMetrics // Print cross-fold metrics
+        |> Seq.maxBy (fun cvResult -> cvResult.Metrics.RSquared) // Select the best model by R-squared
+        |> fun cvResult -> cvResult.Model
+
+    let transformedData = pipeline.Fit(allDataView).Transform(testDataView)
+
+    let predictions = model.Transform(transformedData)
+
+    let predictionRecords = context.Data.CreateEnumerable<AbalonePrediction>(predictions, reuseRowObject = false)
+
+    //do
+    //    predictionRecords
+    //    |> Seq.iter (printfn "%A")
+
+
+
     0

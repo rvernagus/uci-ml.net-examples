@@ -29,5 +29,6 @@ type AbaloneData =
 [<CLIMutable>]
 type AbalonePrediction =
     {
-        PredictedRings : int32
+        Label : single
+        Score : single
     }
