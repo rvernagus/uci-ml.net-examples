@@ -10,7 +10,6 @@ open FunctionalMl
 let main argv =
     if not <| File.Exists("ablone.data") then
         use client = new WebClient()
-        client.Proxy <- new WebProxy("http://localhost:3128")
         client.DownloadFile("http://archive.ics.uci.edu/ml/machine-learning-databases/abalone/abalone.data", "abalone.data")
     
     let ml = MlWrapper()
