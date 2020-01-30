@@ -8,7 +8,7 @@ open FunctionalMl
 
 [<EntryPoint>]
 let main argv =
-    if not <| File.Exists("ablone.data") then
+    if not <| File.Exists("abalone.data") then
         use client = new WebClient()
         client.DownloadFile("http://archive.ics.uci.edu/ml/machine-learning-databases/abalone/abalone.data", "abalone.data")
     
@@ -67,19 +67,20 @@ let main argv =
         |> ml.Context.Regression.Evaluate // Get test metrics
         |> ml.PrintRegressionMetrics
 
+    // Show some sample predictions
     let sampleData =
-        allDataView
+        testDataView
         |> ml.Shuffle 
         |> ml.Transform transformer
 
-    let predictions = model.Transform(sampleData)
-
-    let predictionRecords = ml.Context.Data.CreateEnumerable<AbalonePrediction>(predictions, reuseRowObject = false)
+    let predictionEngine = ml.Context.Model.CreatePredictionEngine<AbaloneDataTransformed, AbalonePrediction>(model)
 
     do
         printfn "------------------\nSample Predictions\n------------------"
-        predictionRecords
-        |> Seq.take 10
+
+        ml.Context.Data.CreateEnumerable<AbaloneDataTransformed>(sampleData, reuseRowObject = false)
+        |> Seq.take 5
+        |> Seq.map predictionEngine.Predict
         |> Seq.iter (printfn "%A")
 
     0

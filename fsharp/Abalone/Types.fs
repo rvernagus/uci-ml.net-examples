@@ -29,16 +29,11 @@ type AbaloneData =
 [<CLIMutable>]
 type AbaloneDataTransformed =
     {
-        Sex : single[]
-        Length : float32
-        Diameter : float32
-        Height : float32
-        WholeWeight : float32
-        ShuckedWeight : float32
-        VisceraWeight : float32
-        ShellWeight : float32
-        Label : single
+        [<ColumnName("Label")>]
+        Rings : single
+        [<VectorType(10)>]
         Features : single[]
+        [<VectorType(10)>]
         FeaturesNorm : single[]
     }
 
@@ -46,6 +41,8 @@ type AbaloneDataTransformed =
 [<CLIMutable>]
 type AbalonePrediction =
     {
-        Label : single
-        Score : single
+        [<ColumnName("Label")>]
+        ActualRings : single
+        [<ColumnName("Score")>]
+        PredictedRings : single
     }
