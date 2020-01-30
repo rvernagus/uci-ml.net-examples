@@ -27,6 +27,23 @@ type AbaloneData =
 
 
 [<CLIMutable>]
+type AbaloneDataTransformed =
+    {
+        Sex : single[]
+        Length : float32
+        Diameter : float32
+        Height : float32
+        WholeWeight : float32
+        ShuckedWeight : float32
+        VisceraWeight : float32
+        ShellWeight : float32
+        Label : single
+        Features : single[]
+        FeaturesNorm : single[]
+    }
+
+
+[<CLIMutable>]
 type AbalonePrediction =
     {
         Label : single
