@@ -1,7 +1,7 @@
 namespace FunctionalMl
 open Microsoft.ML
 open Microsoft.ML.Data
-
+open System.Collections.Generic
 
 type MlWrapper() =
     let context = MLContext()
@@ -15,7 +15,7 @@ type MlWrapper() =
     member _.Shuffle dataView =
         context.Data.ShuffleRows(dataView)
 
-    member _.Split testFraction dataView = 
+    member _.Split testFraction dataView =
         let splitData = context.Data.TrainTestSplit(dataView, testFraction = testFraction)
         splitData.TrainSet, splitData.TestSet
 
@@ -24,6 +24,9 @@ type MlWrapper() =
 
     member _.Concatenate outputColumnName inputColumnNames =
         context.Transforms.Concatenate(outputColumnName = outputColumnName, inputColumnNames = inputColumnNames)
+
+    member _.MapValue outputColumnName (keyValuePairs : IEnumerable<KeyValuePair<string, bool>>) inputColumnName =
+        context.Transforms.Conversion.MapValue(outputColumnName, keyValuePairs, inputColumnName)
 
     member _.Normalize inputColumn outputColumn =
         context.Transforms.NormalizeLpNorm(outputColumnName = outputColumn, inputColumnName = inputColumn)
