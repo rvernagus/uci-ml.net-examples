@@ -46,7 +46,7 @@ let main argv =
         |> Seq.fold ml.Append (EstimatorChain()) // Add the encoders to a new EstimatorChain
         |> ml.Append <| ml.MapValue "Label" labelLookup "Label" // Map labels to either true or false
         |> ml.Append <| ml.Concatenate "Features" featureColumns // Concatenate feature columns into a single new column
-        |> ml.Append <| ml.Normalize "Features" "FeaturesNorm" // Normalize features into a new column, FeaturesNorm
+        |> ml.Append <| ml.NormalizeMinMax "Features" "FeaturesNorm" // Normalize features into a new column, FeaturesNorm
 
     let transformer =
         pipeline

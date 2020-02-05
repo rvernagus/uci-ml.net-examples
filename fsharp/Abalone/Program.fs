@@ -26,7 +26,7 @@ let main argv =
         EstimatorChain()
         |> ml.Append <| ml.Onehot "Sex" // one-hot encode the Sex feature
         |> ml.Append <| ml.Concatenate "Features" featureColumns // Concatenate feature columns into a single new column
-        |> ml.Append <| ml.Normalize "Features" "FeaturesNorm" // Normalize features into a new column, FeaturesNorm
+        |> ml.Append <| ml.NormalizeLp "Features" "FeaturesNorm" // Normalize features into a new column, FeaturesNorm
 
     let transformer =
         pipeline

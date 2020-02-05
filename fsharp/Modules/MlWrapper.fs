@@ -28,8 +28,11 @@ type MlWrapper() =
     member _.MapValue outputColumnName (keyValuePairs : IEnumerable<KeyValuePair<string, bool>>) inputColumnName =
         context.Transforms.Conversion.MapValue(outputColumnName, keyValuePairs, inputColumnName)
 
-    member _.Normalize inputColumn outputColumn =
+    member _.NormalizeLp inputColumn outputColumn  =
         context.Transforms.NormalizeLpNorm(outputColumnName = outputColumn, inputColumnName = inputColumn)
+
+    member _.NormalizeMinMax inputColumn outputColumn  =
+        context.Transforms.NormalizeMinMax(outputColumnName = outputColumn, inputColumnName = inputColumn)
 
     member _.Fit<'T when 'T :> ITransformer and 'T : not struct > dataView (pipeline : EstimatorChain<'T>) =
         pipeline.Fit(dataView)
