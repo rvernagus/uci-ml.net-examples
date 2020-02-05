@@ -14,10 +14,10 @@ let main argv =
     
     let ml = MlWrapper()
     
-    let allDataView = ml.Context.Data.LoadFromTextFile<AbaloneData>("abalone.data", hasHeader = false, separatorChar = ',')
+    let allData = ml.Context.Data.LoadFromTextFile<AbaloneData>("abalone.data", hasHeader = false, separatorChar = ',')
     
-    let trainDataView, testDataView =
-        ml.Shuffle allDataView
+    let trainData, testData =
+        ml.Shuffle allData
         |> ml.Split 0.2
     
     let featureColumns = [| "Sex"; "Length"; "Diameter"; "Height"; "WholeWeight"; "ShuckedWeight"; "VisceraWeight"; "ShellWeight" |]
@@ -30,16 +30,16 @@ let main argv =
 
     let transformer =
         pipeline
-        |> ml.Fit trainDataView // Fit our pipeline on the training data
+        |> ml.Fit trainData // Fit our pipeline on the training data
 
     // Print transformed data
     do
         let transformedData =
-            trainDataView
+            trainData
             |> ml.Transform transformer
 
         printfn "------------------\nData As Loaded\n------------------"
-        ml.Context.Data.CreateEnumerable<AbaloneData>(trainDataView, reuseRowObject = false)
+        ml.Context.Data.CreateEnumerable<AbaloneData>(trainData, reuseRowObject = false)
         |> Seq.take 3
         |> Seq.iter (printfn "%A")
 
@@ -54,7 +54,7 @@ let main argv =
         |> ml.DowncastEstimator
     
     let model =
-        trainDataView // Begin with the training data
+        trainData // Begin with the training data
         |> ml.Transform transformer // Transform using the transformer built above
         |> ml.CrossValidate estimator 3 // 3-fold cross-validation
         |> ml.PrintRegressionCvMetrics // Print cross-fold metrics
@@ -63,13 +63,13 @@ let main argv =
 
     do
         model
-        |> ml.Transform <| ml.Transform transformer testDataView // Transform the test data and get predictions
+        |> ml.Transform <| ml.Transform transformer testData // Transform the test data and get predictions
         |> ml.Context.Regression.Evaluate // Get test metrics
         |> ml.PrintRegressionMetrics
 
     // Show some sample predictions
     let sampleData =
-        testDataView
+        testData
         |> ml.Shuffle 
         |> ml.Transform transformer
 
