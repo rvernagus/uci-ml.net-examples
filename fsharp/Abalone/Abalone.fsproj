@@ -7,7 +7,7 @@
 
   <ItemGroup>
     <Compile Include="..\Modules\MlWrapper.fs" Link="MlWrapper.fs" />
-    <Compile Include="Types.fs" />
+    <Compile Include="Abalone.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 
