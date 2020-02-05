@@ -56,7 +56,7 @@ let main argv =
     let model =
         trainData // Begin with the training data
         |> ml.Transform transformer // Transform using the transformer built above
-        |> ml.CrossValidate estimator 3 // 3-fold cross-validation
+        |> ml.CrossValidateRegression estimator 3 // 3-fold cross-validation
         |> ml.PrintRegressionCvMetrics // Print cross-fold metrics
         |> Seq.maxBy (fun cvResult -> cvResult.Metrics.RSquared) // Select the best model by R-squared
         |> fun cvResult -> cvResult.Model

@@ -42,8 +42,11 @@ type MlWrapper() =
     member _.Transform (transformer : ITransformer) dataView =
         transformer.Transform(dataView)
 
-    member _.CrossValidate estimator numberOfFolds dataView =
+    member _.CrossValidateRegression estimator numberOfFolds dataView =
         context.Regression.CrossValidate(dataView, estimator, numberOfFolds = numberOfFolds)
+
+    member _.CrossValidateBinaryClassification estimator numberOfFolds dataView =
+        context.BinaryClassification.CrossValidate(dataView, estimator, numberOfFolds = numberOfFolds)
 
     member _.PrintRegressionMetrics (metrics : RegressionMetrics) =
         printfn "------------------\nTest Metrics\n------------------"
@@ -51,6 +54,13 @@ type MlWrapper() =
         printfn "Mean Squared Error: %f" metrics.MeanSquaredError
         printfn "Root Mean Squared Error: %f" metrics.RootMeanSquaredError
         printfn "R-squared: %f" metrics.RSquared
+
+    member _.PrintBinaryClassificationMetrics (metrics : CalibratedBinaryClassificationMetrics) =
+        printfn "------------------\nTest Metrics\n------------------"
+        printfn "Accuracy: %f" metrics.Accuracy
+        printfn "Log Loss: %f" metrics.LogLoss
+        printfn "Area Under ROC Curve: %f" metrics.AreaUnderRocCurve
+        printfn "F1 Score: %f" metrics.F1Score
 
     member _.PrintRegressionCvMetrics (cvResults : TrainCatalogBase.CrossValidationResult<RegressionMetrics> seq) =
         printfn "------------------\nCross Validation Metrics\n------------------"

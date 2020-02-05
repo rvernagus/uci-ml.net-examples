@@ -1,7 +1,6 @@
 ﻿module Adult
 open Microsoft.ML.Data
 
-
 [<CLIMutable>]
 type AdultData =
     {
@@ -58,9 +57,21 @@ type AdultDataTransformed =
         [<ColumnName("Label")>]
         Target : bool
 
-        [<VectorType()>]
+        [<VectorType(83)>]
         Features : single[]
 
-        [<VectorType()>]
+        [<VectorType(83)>]
         FeaturesNorm : single[]
+    }
+
+[<CLIMutable>]
+type AdultPrediction =
+    {
+        [<ColumnName("Label")>]
+        ActualTarget : bool
+
+        Probability : single
+
+        [<ColumnName("PredictedLabel")>]
+        PredictedTarget : bool
     }

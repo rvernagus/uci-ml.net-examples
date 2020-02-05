@@ -4,82 +4,32 @@ open Adult
 open System.IO
 open System.Net
 open System.Collections.Generic
-
-
-let printCvResultMetrics (cvResults : TrainCatalogBase.CrossValidationResult<CalibratedBinaryClassificationMetrics> seq) =
-    do
-        printfn "------------------\nCross Validation Metrics\n------------------"
-        cvResults
-        |> Seq.map (fun cvResult -> cvResult.Metrics.Accuracy)
-        |> Seq.average
-        |> printfn "Accuracy: %f"; cvResults
-        |> Seq.map (fun cvResult -> cvResult.Metrics.AreaUnderRocCurve)
-        |> Seq.average
-        |> printfn "Area Under Roc Curve: %f"; cvResults
-        |> Seq.map (fun cvResult -> cvResult.Metrics.F1Score)
-        |> Seq.average
-        |> printfn "F1 Score: %f"
-
-    cvResults
-
-let loadAndShuffle (context : MLContext) filePath =
-    context.Data.LoadFromTextFile<AdultData>(filePath, hasHeader = false, separatorChar = ',')
-    |> context.Data.ShuffleRows
-
-let append (chain : EstimatorChain<'T>) transform =
-    chain.Append(transform)
-
-let onehot (context : MLContext) (column : string) =
-    context.Transforms.Categorical.OneHotEncoding(column)
-
-let concatenate (context : MLContext)  outputColumnName inputColumnNames =
-    context.Transforms.Concatenate(outputColumnName = outputColumnName, inputColumnNames = inputColumnNames)
-
-let mapValue (context : MLContext)  outputColumnName (keyValuePairs : IEnumerable<KeyValuePair<string, bool>>) inputColumnName =
-    context.Transforms.Conversion.MapValue(outputColumnName, keyValuePairs, inputColumnName)
-
-let normalize (context : MLContext)  inputColumn outputColumn =
-    context.Transforms.NormalizeBinning(outputColumnName = outputColumn, inputColumnName = inputColumn)
-
-let downcastEstimator (e : IEstimator<'a>) =
-    match e with
-    | :? IEstimator<ITransformer> as p -> p
-    | _ -> failwith "The estimator has to be an instance of IEstimator<ITransformer>."
-
-let makeEstimator (context : MLContext) featureColumnName =
-    context.BinaryClassification.Trainers.SdcaLogisticRegression(featureColumnName = featureColumnName)
-    |> downcastEstimator
-
-let transform (transformer : ITransformer) dataView =
-    transformer.Transform(dataView)
-
-let crossValidate (context : MLContext) estimator numberOfFolds dataView =
-    context.BinaryClassification.CrossValidate(dataView, estimator, numberOfFolds = numberOfFolds)
-
-let printMetrics (metrics : CalibratedBinaryClassificationMetrics) =
-    do
-        printfn "------------------\nTest Metrics\n------------------"
-        printfn "Accuracy: %f" metrics.Accuracy
-        printfn "Log Loss: %f" metrics.LogLoss
-        printfn "Area Under ROC Curve: %f" metrics.AreaUnderRocCurve
-        printfn "F1 Score: %f" metrics.F1Score
+open FunctionalMl
 
 
 [<EntryPoint>]
 let main argv =
     if not <| File.Exists("adult.data") then
         use client = new WebClient()
+        client.Proxy <- new WebProxy("http://localhost:3128")
         client.DownloadFile("https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.data", "adult.data")
 
     if not <| File.Exists("adult.test") then
         use client = new WebClient()
+        client.Proxy <- new WebProxy("http://localhost:3128")
         client.DownloadFile("https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.test", "adult.test")
-    
-    let context = new MLContext()
-    
-    let trainDataView = loadAndShuffle context "adult.data"
-    let testDataView = loadAndShuffle context "adult.test"
-    
+
+    //let context = new MLContext()
+    let ml = MlWrapper()
+
+    let trainData =
+        ml.Context.Data.LoadFromTextFile<AdultData>("adult.data", hasHeader = false, separatorChar = ',')
+        |> ml.Shuffle
+
+    let testData =
+        ml.Context.Data.LoadFromTextFile<AdultData>("adult.test", hasHeader = false, separatorChar = ',')
+        |> ml.Shuffle
+
     let featureColumns = [| "Age"; "WorkClass"; "Fnlwgt"; "Education"; "EducationNum"; "MaritalStatus"; "Occupation"; "Relationship"; "Race"; "Sex"; "CapitalGain"; "CapitalLoss"; "HoursPerWeek"; "NativeCountry" |]
     let categoricalColumns = [| "WorkClass"; "Education"; "MaritalStatus"; "Occupation"; "Relationship"; "Race"; "Sex"; "NativeCountry" |]
     let labelLookup =
@@ -90,26 +40,65 @@ let main argv =
             KeyValuePair(">50K.", true)
         |]
 
-    let transformer =
+    let pipeline =
         categoricalColumns
-        |> Seq.map (onehot context) // Create a one-hot encoder for each categorical column
-        |> Seq.fold append (EstimatorChain()) // Add the encoders to a new EstimatorChain
-        |> append <| mapValue context "Label" labelLookup "Label" // Map labels to either true or false
-        |> append <| concatenate context "Features" featureColumns // Concatenate feature columns into a single new column
-        |> append <| normalize context "Features" "FeaturesNorm" // Normalize features into a new column, FeaturesNorm
-        |> (fun pipeline -> pipeline.Fit(trainDataView)) // Fit our pipeline on the training data
-    
-    let estimator = makeEstimator context "FeaturesNorm"
-    
+        |> Seq.map ml.Onehot // Create a one-hot encoder for each categorical column
+        |> Seq.fold ml.Append (EstimatorChain()) // Add the encoders to a new EstimatorChain
+        |> ml.Append <| ml.MapValue "Label" labelLookup "Label" // Map labels to either true or false
+        |> ml.Append <| ml.Concatenate "Features" featureColumns // Concatenate feature columns into a single new column
+        |> ml.Append <| ml.Normalize "Features" "FeaturesNorm" // Normalize features into a new column, FeaturesNorm
+
+    let transformer =
+        pipeline
+        |> ml.Fit trainData // Fit our pipeline on the training data
+
+    // Print transformed data
     do
-        trainDataView  // Begin with the training data
-        |> transform transformer // Transform using the transformer built above
-        |> crossValidate context estimator 3 // 3-fold cross-validation
-        |> printCvResultMetrics // Print cross-fold metrics
-        |> Seq.maxBy (fun cvResult -> cvResult.Metrics.Accuracy)  // Select the best model by accuracy
+        let transformedData =
+            trainData
+            |> ml.Transform transformer
+
+        printfn "------------------\nData As Loaded\n------------------"
+        ml.Context.Data.CreateEnumerable<AdultData>(trainData, reuseRowObject = false)
+        |> Seq.take 3
+        |> Seq.iter (printfn "%A")
+
+        printfn "------------------\nTransformed Data\n------------------"
+        ml.Context.Data.CreateEnumerable<AdultDataTransformed>(transformedData, reuseRowObject = false)
+        |> Seq.take 3
+        |> Seq.iter (printfn "%A")
+
+    let estimator =
+        ml.Context.BinaryClassification.Trainers.SdcaLogisticRegression(featureColumnName = "FeaturesNorm")
+        |> ml.DowncastEstimator
+
+    let model =
+        trainData // Begin with the training data
+        |> ml.Transform transformer // Transform using the transformer built above
+        |> ml.CrossValidateBinaryClassification estimator 3 // 3-fold cross-validation
+        |> ml.PrintBinaryClassificationCvMetrics // Print cross-fold metrics
+        |> Seq.maxBy (fun cvResult -> cvResult.Metrics.Accuracy) // Select the best model by R-squared
         |> fun cvResult -> cvResult.Model
-        |> transform <| transform transformer testDataView // Transform the test data and get predictions
-        |> context.BinaryClassification.Evaluate // Get test metrics
-        |> printMetrics
+
+    do
+        model
+        |> ml.Transform <| ml.Transform transformer testData // Transform the test data and get predictions
+        |> ml.Context.BinaryClassification.Evaluate // Get test metrics
+        |> ml.PrintBinaryClassificationMetrics
+
+    // Show some sample predictions
+    let sampleData =
+        testData
+        |> ml.Transform transformer
+
+    let predictionEngine = ml.Context.Model.CreatePredictionEngine<AdultDataTransformed, AdultPrediction>(model)
+
+    do
+        printfn "------------------\nSample Predictions\n------------------"
+
+        ml.Context.Data.CreateEnumerable<AdultDataTransformed>(sampleData, reuseRowObject = false)
+        |> Seq.take 5
+        |> Seq.map predictionEngine.Predict
+        |> Seq.iter (printfn "%A")
 
     0
