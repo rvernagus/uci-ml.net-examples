@@ -66,3 +66,18 @@ type MlWrapper() =
         |> printfn "R-squared: %f"
 
         cvResults
+
+    member _.PrintBinaryClassificationCvMetrics(cvResults : TrainCatalogBase.CrossValidationResult<CalibratedBinaryClassificationMetrics> seq) =
+        printfn "------------------\nCross Validation Metrics\n------------------"
+        cvResults
+        |> Seq.map (fun cvResult -> cvResult.Metrics.Accuracy)
+        |> Seq.average
+        |> printfn "Accuracy: %f"; cvResults
+        |> Seq.map (fun cvResult -> cvResult.Metrics.AreaUnderRocCurve)
+        |> Seq.average
+        |> printfn "Area Under Roc Curve: %f"; cvResults
+        |> Seq.map (fun cvResult -> cvResult.Metrics.F1Score)
+        |> Seq.average
+        |> printfn "F1 Score: %f"
+
+        cvResults
