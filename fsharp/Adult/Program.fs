@@ -11,12 +11,10 @@ open FunctionalMl
 let main argv =
     if not <| File.Exists("adult.data") then
         use client = new WebClient()
-        client.Proxy <- new WebProxy("http://localhost:3128")
         client.DownloadFile("https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.data", "adult.data")
 
     if not <| File.Exists("adult.test") then
         use client = new WebClient()
-        client.Proxy <- new WebProxy("http://localhost:3128")
         client.DownloadFile("https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.test", "adult.test")
 
     //let context = new MLContext()
@@ -77,7 +75,7 @@ let main argv =
         |> ml.Transform transformer // Transform using the transformer built above
         |> ml.CrossValidateBinaryClassification estimator 3 // 3-fold cross-validation
         |> ml.PrintBinaryClassificationCvMetrics // Print cross-fold metrics
-        |> Seq.maxBy (fun cvResult -> cvResult.Metrics.Accuracy) // Select the best model by R-squared
+        |> Seq.maxBy (fun cvResult -> cvResult.Metrics.Accuracy) // Select the best model by Accuracy
         |> fun cvResult -> cvResult.Model
 
     do
