@@ -17,7 +17,6 @@ let main argv =
         use client = new WebClient()
         client.DownloadFile("https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.test", "adult.test")
 
-    //let context = new MLContext()
     let ml = MlWrapper()
 
     let trainData =
