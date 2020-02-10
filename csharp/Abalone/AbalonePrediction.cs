@@ -1,14 +1,17 @@
-﻿using System;
+﻿using Microsoft.ML.Data;
+using System;
 
 namespace Abalone
 {
     public class AbalonePrediction
     {
-        public Single Label { get; set; }
+        [ColumnName("Label")]
+        public Single ActualRings { get; set; }
 
-        public Single Score { get; set; }
+        [ColumnName("Score")]
+        public Single PredictedRings { get; set; }
 
         public override string ToString() =>
-            $"Label: {Label}, Score: {Score}";
+            $"ActualRings: {ActualRings}, PredictedRings: {PredictedRings}";
     }
 }

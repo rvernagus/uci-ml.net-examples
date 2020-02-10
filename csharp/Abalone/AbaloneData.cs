@@ -32,5 +32,24 @@ namespace Abalone
         [LoadColumn(8)]
         [ColumnName("Label")]
         public Single Rings { get; set; }
+
+        public override string ToString() =>
+            $"{{ Sex: {Sex}\n  Length: {Length}\n  Diameter: {Diameter}\n  Height: {Height}\n  WholeWeight: {WholeWeight}\n  ShuckedWeight: {ShuckedWeight}\n  VisceralWeight: {VisceraWeight}\n  ShellWeight: {ShellWeight}\n  Rings: {Rings} }}";
+
+    }
+
+    public class AbaloneDataTransformed
+    {
+        [ColumnName("Label")]
+        public float Rings { get; set; }
+        
+        [VectorType(10)]
+        public float[] Features { get; set; }
+        
+        [VectorType(10)]
+        public float[] FeaturesNorm { get; set; }
+
+        public override string ToString() =>
+            $"{{ Rings: {Rings}\n  Features: {string.Join(",", Features)}\n  FeaturesNorm: {string.Join(",", FeaturesNorm)} }}";
     }
 }
