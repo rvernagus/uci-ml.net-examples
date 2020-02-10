@@ -49,5 +49,23 @@ namespace Adult
         [LoadColumn(14)]
         [ColumnName("Label")]
         public string Target { get; set; }
+
+        public override string ToString() =>
+            $"{{ Age: {Age}\n  WorkClass: {WorkClass}\n  Fnlwgt: {Fnlwgt}\n  Education: {Education}\n  EducationNum: {EducationNum}\n  MaritalStatus: {MaritalStatus}\n  Occupation: {Occupation}\n  Relationship: {Relationship}\n  Race: {Race}\n  Sex: {Sex}\n  CapitalGain: {CapitalGain}\n  CapitalLoss: {CapitalLoss}\n  HoursPerWeek: {HoursPerWeek}\n  NativeCountry: {NativeCountry}\n  Target: {Target} }}";
+    }
+
+    public class AdultDataTransformed
+    {
+        [ColumnName("Label")]
+        public bool Target { get; set; }
+
+        [VectorType(83)]
+        public float[] Features { get; set; }
+
+        [VectorType(83)]
+        public float[] FeaturesNorm { get; set; }
+
+        public override string ToString() =>
+            $"{{ Target: {Target}\n  Features: {string.Join(",", Features)}\n  FeaturesNorm: {string.Join(",", FeaturesNorm)} }}";
     }
 }

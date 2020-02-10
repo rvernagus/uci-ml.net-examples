@@ -15,12 +15,14 @@ namespace Adult
             if (!File.Exists("adult.data"))
             {
                 using var client = new WebClient();
+                client.Proxy = new WebProxy("http://localhost:3128");
                 client.DownloadFile("https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.data", "adult.data");
             }
 
-            if (!File.Exists("abalone.test"))
+            if (!File.Exists("adult.test"))
             {
                 using var client = new WebClient();
+                client.Proxy = new WebProxy("http://localhost:3128");
                 client.DownloadFile("https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.test", "adult.test");
             }
 
@@ -55,12 +57,33 @@ namespace Adult
             };
 
             var chain = new EstimatorChain<Microsoft.ML.Transforms.OneHotEncodingTransformer>();
-            var transformer = categoricalColumns
+            var pipeline = categoricalColumns
                 .Aggregate(chain, (pl, col) => pl.Append(context.Transforms.Categorical.OneHotEncoding(col)))
                 .Append(context.Transforms.Conversion.MapValue("Label", labelLookup, "Label"))
                 .Append(context.Transforms.Concatenate("Features", featureColumns))
-                .Append(context.Transforms.NormalizeBinning("FeaturesNorm", "Features"))
-                .Fit(trainData);
+                .Append(context.Transforms.NormalizeBinning("FeaturesNorm", "Features"));
+
+            var transformer = pipeline.Fit(trainData);
+
+            // Print transformed data
+            Console.WriteLine("------------------\nData As Loaded\n------------------");
+            var sourceItems = context.Data
+                .CreateEnumerable<AdultData>(trainData, reuseRowObject: false)
+                .Take(3);
+            foreach (var item in sourceItems)
+            {
+                Console.WriteLine(item);
+            }
+
+            Console.WriteLine("------------------\nTransformed Data\n------------------");
+            var transformedData = transformer.Transform(trainData);
+            var transformedItems = context.Data
+                .CreateEnumerable<AdultDataTransformed>(transformedData, reuseRowObject: false)
+                .Take(3);
+            foreach (var item in transformedItems)
+            {
+                Console.WriteLine(item);
+            }
 
             var estimator = context.BinaryClassification.Trainers.SdcaLogisticRegression(featureColumnName: "FeaturesNorm");
 
@@ -85,6 +108,22 @@ namespace Adult
             Console.WriteLine($"F1 Score: {metrics.F1Score}");
             Console.WriteLine("--------------------------------");
             Console.WriteLine();
+
+
+            // Show some sample predictions
+            var sampleData = context.Data.ShuffleRows(testData);
+            var transformedSampleData = transformer.Transform(sampleData);
+
+            var predictionEngine = context.Model.CreatePredictionEngine<AdultDataTransformed, AdultPrediction>(cvResult.Model);
+
+            Console.WriteLine("------------------\nSample Predictions\n------------------");
+            var samplePredictions = context.Data.CreateEnumerable<AdultDataTransformed>(transformedSampleData, reuseRowObject: false)
+                .Take(5)
+                .Select(predictionEngine.Predict);
+            foreach (var item in samplePredictions)
+            {
+                Console.WriteLine(item);
+            }
         }
     }
 }
