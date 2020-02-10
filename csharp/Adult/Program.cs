@@ -1,5 +1,6 @@
 ﻿using Microsoft.ML;
 using Microsoft.ML.Data;
+using Microsoft.ML.Transforms;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -54,7 +55,7 @@ namespace Adult
                 [">50K."] = true
             };
 
-            var chain = new EstimatorChain<Microsoft.ML.Transforms.OneHotEncodingTransformer>();
+            var chain = new EstimatorChain<OneHotEncodingTransformer>();
             var pipeline = categoricalColumns
                 .Aggregate(chain, (pl, col) => pl.Append(context.Transforms.Categorical.OneHotEncoding(col)))
                 .Append(context.Transforms.Conversion.MapValue("Label", labelLookup, "Label"))
@@ -91,6 +92,7 @@ namespace Adult
                 .OrderByDescending(x => x.Metrics.Accuracy)
                 .First();
 
+            Console.WriteLine("------------------\nCross Validation Metrics\n------------------");
             Console.WriteLine($"Accuracy: {cvResults.Average(x => x.Metrics.Accuracy)}");
             Console.WriteLine($"Area Under Roc Curve: {cvResults.Average(x => x.Metrics.AreaUnderRocCurve)}");
             Console.WriteLine($"F1 Score: {cvResults.Average(x => x.Metrics.F1Score)}");
@@ -101,6 +103,7 @@ namespace Adult
             var predictions = cvResult.Model.Transform(transformedTestData);
             var metrics = context.BinaryClassification.Evaluate(predictions);
 
+            Console.WriteLine("------------------\n Test Metrics\n------------------");
             Console.WriteLine($"Accuracy: {metrics.Accuracy}");
             Console.WriteLine($"Area Under Roc Curve: {metrics.AreaUnderRocCurve}");
             Console.WriteLine($"F1 Score: {metrics.F1Score}");
