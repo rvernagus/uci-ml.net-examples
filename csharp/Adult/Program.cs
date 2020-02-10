@@ -15,14 +15,12 @@ namespace Adult
             if (!File.Exists("adult.data"))
             {
                 using var client = new WebClient();
-                client.Proxy = new WebProxy("http://localhost:3128");
                 client.DownloadFile("https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.data", "adult.data");
             }
 
             if (!File.Exists("adult.test"))
             {
                 using var client = new WebClient();
-                client.Proxy = new WebProxy("http://localhost:3128");
                 client.DownloadFile("https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.test", "adult.test");
             }
 
