@@ -7,6 +7,7 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.ML" Version="1.5.0-preview" />
+    <PackageReference Include="Microsoft.ML.LightGbm" Version="1.5.0-preview" />
   </ItemGroup>
 
 </Project>

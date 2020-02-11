@@ -4,9 +4,9 @@
     {
         public int LabelValue { get; set; }
 
-        public float[] FeaturesPCA { get; set; }
+        public float[] Features { get; set; }
 
         public override string ToString() =>
-            $"{{ LabelValue: {LabelValue}\n  FeaturesPCA: {string.Join(",", FeaturesPCA)} }}";
+            $"{{ LabelValue: {LabelValue}\n  Features: {string.Join(",", Features)} }}";
     }
 }

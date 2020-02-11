@@ -42,13 +42,14 @@ namespace Arrhythmia
                 Console.WriteLine($"{labelGroup.Key}: {labelGroup.Count()}");
             }
 
+            // Try normalizing and using PCA with different trainers to see impacts
             var pipeline = context.Transforms.Conversion
                 .MapValueToKey("Label", "Label")
                 .Append(context.Transforms.Conversion.MapKeyToValue("LabelValue", "Label"))
                 .Append(context.Transforms.Concatenate("Features", featureColumns))
-                .Append(context.Transforms.ReplaceMissingValues("Features", replacementMode: MissingValueReplacingEstimator.ReplacementMode.DefaultValue))
-                .Append(context.Transforms.NormalizeLogMeanVariance("FeaturesNorm", "Features"))
-                .Append(context.Transforms.ProjectToPrincipalComponents("FeaturesPCA", "Features", rank: 10, ensureZeroMean: false));
+                .Append(context.Transforms.ReplaceMissingValues("Features", replacementMode: MissingValueReplacingEstimator.ReplacementMode.Mean));
+                //.Append(context.Transforms.NormalizeLogMeanVariance("FeaturesNorm", "Features"))
+                //.Append(context.Transforms.ProjectToPrincipalComponents("Features", "FeaturesNorm", rank: 10, ensureZeroMean: false));
 
             var transformer = pipeline.Fit(trainData);
 
@@ -75,16 +76,17 @@ namespace Arrhythmia
                 Console.WriteLine(item);
             }
 
-            var estimator = context.MulticlassClassification.Trainers.LbfgsMaximumEntropy(featureColumnName: "FeaturesPCA");
+            var estimator = context.MulticlassClassification.Trainers.LightGbm(featureColumnName: "Features", learningRate: 0.1);
 
             var transformedTrainData = transformer.Transform(trainData);
-            var cvResults = context.MulticlassClassification.CrossValidate(transformedTrainData, estimator, numberOfFolds: 3);
+            var cvResults = context.MulticlassClassification.CrossValidate(transformedTrainData, estimator, numberOfFolds: 5);
             var cvResult = cvResults
-                .OrderByDescending(x => x.Metrics.MacroAccuracy)
+                .OrderByDescending(x => x.Metrics.MicroAccuracy)
                 .First();
 
             Console.WriteLine("------------------\nCross Validation Metrics\n------------------");
-            Console.WriteLine($"Accuracy: {cvResults.Average(x => x.Metrics.MacroAccuracy)}");
+            Console.WriteLine($"MacroAccuracy: {cvResults.Average(x => x.Metrics.MacroAccuracy)}");
+            Console.WriteLine($"MicroAccuracy: {cvResults.Average(x => x.Metrics.MicroAccuracy)}");
             Console.WriteLine($"Log Loss: {cvResults.Average(x => x.Metrics.LogLoss)}");
             Console.WriteLine($"Confusion Matrix:");
             Console.WriteLine(cvResult.Metrics.ConfusionMatrix.GetFormattedConfusionTable());
@@ -96,7 +98,8 @@ namespace Arrhythmia
             var metrics = context.MulticlassClassification.Evaluate(predictions);
 
             Console.WriteLine("------------------\n Test Metrics\n------------------");
-            Console.WriteLine($"Accuracy: {metrics.MacroAccuracy}");
+            Console.WriteLine($"MacroAccuracy: {metrics.MacroAccuracy}");
+            Console.WriteLine($"MicroAccuracy: {metrics.MicroAccuracy}");
             Console.WriteLine($"Log Loss: {metrics.LogLoss}");
             Console.WriteLine($"Confusion Matrix:");
             Console.WriteLine(metrics.ConfusionMatrix.GetFormattedConfusionTable());
