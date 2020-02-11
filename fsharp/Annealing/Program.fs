@@ -3,58 +3,7 @@ open Microsoft.ML.Data
 open System.IO
 open System.Net
 open Annealing
-
-
-let shuffle (context : MLContext) dataView =
-    context.Data.ShuffleRows(dataView)
-
-let append (chain : EstimatorChain<'T>) transform =
-    chain.Append(transform)
-
-let onehot (context : MLContext) (column : string) =
-    context.Transforms.Categorical.OneHotEncoding(column)
-
-let concatenate (context : MLContext) outputColumnName inputColumnNames =
-    context.Transforms.Concatenate(outputColumnName = outputColumnName, inputColumnNames = inputColumnNames)
-
-let mapValueToKey (context : MLContext) sourceColumn destinationColumn =
-    context.Transforms.Conversion.MapValueToKey(inputColumnName = sourceColumn, outputColumnName = destinationColumn)
-
-let printCvResultMetrics (cvResults : TrainCatalogBase.CrossValidationResult<MulticlassClassificationMetrics> seq) =
-    do
-        printfn "------------------\nCross Validation Metrics\n------------------"
-        cvResults
-        |> Seq.map (fun cvResult -> cvResult.Metrics.MacroAccuracy)
-        |> Seq.average
-        |> printfn "Accuracy: %f"; cvResults
-        |> Seq.map (fun cvResult -> cvResult.Metrics.LogLoss)
-        |> Seq.average
-        |> printfn "Log Loss: %f"
-    
-    cvResults
-
-let printMetrics (metrics : MulticlassClassificationMetrics) =
-    do
-        printfn "------------------\nTest Metrics\n------------------"
-        printfn "Accuracy: %f" metrics.MacroAccuracy
-        printfn "Log Loss: %f" metrics.LogLoss
-        printfn "Confusion Matrix:"
-        printfn "%s" <| metrics.ConfusionMatrix.GetFormattedConfusionTable()
-
-let downcastEstimator (e : IEstimator<'a>) =
-    match e with
-    | :? IEstimator<ITransformer> as p -> p
-    | _ -> failwith "The estimator has to be an instance of IEstimator<ITransformer>."
-
-let makeEstimator (context : MLContext) featureColumnName =
-    context.MulticlassClassification.Trainers.LbfgsMaximumEntropy(featureColumnName = featureColumnName)
-    |> downcastEstimator
-
-let transform (transformer : ITransformer) dataView =
-    transformer.Transform(dataView)
-
-let crossValidate (context : MLContext) estimator numberOfFolds dataView =
-    context.MulticlassClassification.CrossValidate(dataView, estimator, numberOfFolds = numberOfFolds)
+open FunctionalMl
 
 
 [<EntryPoint>]
@@ -67,15 +16,15 @@ let main argv =
         use client = new WebClient()
         client.DownloadFile("https://archive.ics.uci.edu/ml/machine-learning-databases/annealing/anneal.test", "anneal.test")
 
-    let context = new MLContext()
+    let ml = new MlWrapper()
 
-    let trainDataView =
-        context.Data.LoadFromTextFile<AnnealingData>("anneal.data", hasHeader = false, separatorChar = ',')
-        |> shuffle context
+    let trainData =
+        ml.Context.Data.LoadFromTextFile<AnnealingData>("anneal.data", hasHeader = false, separatorChar = ',')
+        |> ml.Shuffle
 
-    let testDataView =
-        context.Data.LoadFromTextFile<AnnealingData>("anneal.test", hasHeader = false, separatorChar = ',')
-        |> shuffle context
+    let testData =
+        ml.Context.Data.LoadFromTextFile<AnnealingData>("anneal.test", hasHeader = false, separatorChar = ',')
+        |> ml.Shuffle
 
     let featureColumns =
         [|
@@ -92,55 +41,74 @@ let main argv =
             "Exptl"; "Ferro"; "Corr"; "BlueBrightVarnClean"; "Lustre"; "Jurofm"; "S"; "P"; "Shape"; "Oil"; "Bore"; "Packing"
         |]
 
-    let transformer =
+    let pipeline =
         categoricalColumns
-        |> Seq.map (onehot context)
-        |> Seq.fold append (EstimatorChain())
-        |> append <| mapValueToKey context "Label" "Label"
-        |> append <| concatenate context "Features" featureColumns
-        |> fun pipeline -> pipeline.Fit(trainDataView)
+        |> Seq.map ml.Onehot // Create a one-hot encoder for each categorical column
+        |> Seq.fold ml.Append (EstimatorChain()) // Add the encoders to a new EstimatorChain
+        |> ml.Append <| ml.MapValueToKey "Label" "Label" // Map labels keys
+        |> ml.Append <| ml.Concatenate "Features" featureColumns // Concatenate feature columns into a single new column
+        |> ml.Append <| ml.MapKeyToValue "Label" "LabelValue"
 
-    let estimator = makeEstimator context "Features"
+    let transformer =
+        pipeline
+        |> ml.Fit trainData // Fit our pipeline on the training data
+
+    // Print transformed data
+    do
+        let transformedData =
+            trainData
+            |> ml.Transform transformer
+
+        printfn "------------------\nData As Loaded\n------------------"
+        ml.Context.Data.CreateEnumerable<AnnealingData>(trainData, reuseRowObject = false)
+        |> Seq.take 3
+        |> Seq.iter (printfn "%A")
+
+        let test = ml.Context.Data.CreateEnumerable<AnnealingDataTransformed>(transformedData, reuseRowObject = false)
+
+        printfn "------------------\nTransformed Data\n------------------"
+        ml.Context.Data.CreateEnumerable<AnnealingDataTransformed>(transformedData, reuseRowObject = false)
+        |> Seq.take 3
+        |> Seq.iter (printfn "%A")
+
+    let estimator =
+        ml.Context.MulticlassClassification.Trainers.LbfgsMaximumEntropy(featureColumnName = "Features")
+        |> ml.DowncastEstimator
 
     let model =
-        trainDataView
-        |> transform transformer
-        |> crossValidate context estimator 3
-        |> Seq.maxBy (fun cvResult -> cvResult.Metrics.MacroAccuracy)
+        trainData // Begin with the training data
+        |> ml.Transform transformer // Transform using the transformer built above
+        |> ml.CrossValidateMulticlassClassification estimator 3 // 3-fold cross-validation
+        |> ml.PrintMulticlassClassificationCvMetrics // Print cross-fold metrics
+        |> Seq.maxBy (fun cvResult -> cvResult.Metrics.MacroAccuracy) // Select the best model by Accuracy
         |> fun cvResult -> cvResult.Model
     
     do
-        trainDataView
-        |> transform transformer
-        |> crossValidate context estimator 3
-        |> Seq.maxBy (fun cvResult -> cvResult.Metrics.MacroAccuracy)
-        |> fun cvResult -> cvResult.Model
-        |> transform <| transform transformer testDataView
-        |> context.MulticlassClassification.Evaluate
-        |> printMetrics
+        model
+        |> ml.Transform <| ml.Transform transformer testData // Transform the test data and get predictions
+        |> ml.Context.MulticlassClassification.Evaluate // Get test metrics
+        |> ml.PrintMulticlassClassificationMetrics
 
-    // Print some individual predictions
-    let testRecords =
-        testDataView
-        |> context.Data.ShuffleRows
-        |> fun data -> context.Data.TakeRows(data, 5L)
+    // Show some sample predictions
+    let sampleData =
+        testData
+        |> ml.Transform transformer
+        |> ml.Transform model
 
-    let actualPrices =
-        testRecords
-        |> transform transformer
-        |> fun dv -> dv.Preview().RowView
-        |> Seq.map (fun record -> record.Values.[103])
+    let postPredictionPipeline =
+        EstimatorChain()
+        |> ml.Append <| ml.MapKeyToValue "PredictedLabel" "PredictedLabelValue"
+        |> ml.Append <| ml.MapKeyToValue "Label" "LabelValue"
+        |> ml.Fit sampleData
 
-    let predictedPrices =
-        testRecords
-        |> transform transformer
-        |> transform model
-        |> fun resultView -> resultView.Preview().RowView
-        |> Seq.map (fun record -> record.Values.[105])
+    let samplePredictions =
+        sampleData
+        |> ml.Transform postPredictionPipeline
 
     do
-        printfn "------------------"
-        Seq.zip actualPrices predictedPrices
+        printfn "------------------\nSample Predictions\n------------------"
+        ml.Context.Data.CreateEnumerable<AnnealingPrediction>(samplePredictions, reuseRowObject = false)
+        |> Seq.take 5
         |> Seq.iter (printfn "%A")
 
     0
