@@ -114,15 +114,13 @@ namespace Annealing
             var sampleData = context.Data.ShuffleRows(testData);
             var transformedSampleData = transformer.Transform(sampleData);
 
-            var predictionEngine = context.Model.CreatePredictionEngine<AnnealDataTransformed, AnnealPrediction>(cvResult.Model);
-
             Console.WriteLine("------------------\nSample Predictions\n------------------");
             var samplePredictions = cvResult.Model.Transform(transformedSampleData);
-            var mapPredictionToValue = context.Transforms.Conversion
+            var mapValues = context.Transforms.Conversion
                 .MapKeyToValue("PredictedLabelValue", "PredictedLabel")
                 .Append(context.Transforms.Conversion.MapKeyToValue("LabelValue", "Label"))
                 .Fit(samplePredictions);
-            samplePredictions = mapPredictionToValue.Transform(samplePredictions);
+            samplePredictions = mapValues.Transform(samplePredictions);
             var samplePredictionItems = context.Data.CreateEnumerable<AnnealPrediction>(samplePredictions, reuseRowObject: false);
 
             foreach (var item in samplePredictionItems.Take(5))
