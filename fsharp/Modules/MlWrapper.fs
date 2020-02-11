@@ -22,11 +22,17 @@ type MlWrapper() =
     member _.Onehot (column : string) =
         context.Transforms.Categorical.OneHotEncoding(column)
 
-    member _.Concatenate outputColumnName inputColumnNames =
-        context.Transforms.Concatenate(outputColumnName = outputColumnName, inputColumnNames = inputColumnNames)
+    member _.Concatenate outputColumn inputColumns =
+        context.Transforms.Concatenate(outputColumnName = outputColumn, inputColumnNames = inputColumns)
 
-    member _.MapValue outputColumnName (keyValuePairs : IEnumerable<KeyValuePair<string, bool>>) inputColumnName =
-        context.Transforms.Conversion.MapValue(outputColumnName, keyValuePairs, inputColumnName)
+    member _.MapValue outputColumn (keyValuePairs : IEnumerable<KeyValuePair<string, bool>>) inputColumn =
+        context.Transforms.Conversion.MapValue(outputColumn, keyValuePairs, inputColumn)
+
+    member _.MapValueToKey inputColumn outputColumn =
+        context.Transforms.Conversion.MapValueToKey(outputColumnName = outputColumn, inputColumnName = inputColumn)
+
+    member _.MapKeyToValue inputColumn outputColumn =
+        context.Transforms.Conversion.MapKeyToValue(outputColumn, inputColumnName = inputColumn)
 
     member _.NormalizeLp inputColumn outputColumn  =
         context.Transforms.NormalizeLpNorm(outputColumnName = outputColumn, inputColumnName = inputColumn)
@@ -51,6 +57,9 @@ type MlWrapper() =
     member _.CrossValidateBinaryClassification estimator numberOfFolds dataView =
         context.BinaryClassification.CrossValidate(dataView, estimator, numberOfFolds = numberOfFolds)
 
+    member _.CrossValidateMulticlassClassification estimator numberOfFolds dataView =
+        context.MulticlassClassification.CrossValidate(dataView, estimator, numberOfFolds = numberOfFolds)
+
     member _.PrintRegressionMetrics (metrics : RegressionMetrics) =
         printfn "------------------\nTest Metrics\n------------------"
         printfn "Mean Absolute Error: %f" metrics.MeanAbsoluteError
@@ -64,6 +73,13 @@ type MlWrapper() =
         printfn "Log Loss: %f" metrics.LogLoss
         printfn "Area Under ROC Curve: %f" metrics.AreaUnderRocCurve
         printfn "F1 Score: %f" metrics.F1Score
+
+    member _.PrintMulticlassClassificationMetrics (metrics : MulticlassClassificationMetrics) =
+        printfn "------------------\nTest Metrics\n------------------"
+        printfn "Accuracy: %f" metrics.MacroAccuracy
+        printfn "Log Loss: %f" metrics.LogLoss
+        printfn "Confusion Matrix:"
+        printfn "%s" <| metrics.ConfusionMatrix.GetFormattedConfusionTable()
 
     member _.PrintRegressionCvMetrics (cvResults : TrainCatalogBase.CrossValidationResult<RegressionMetrics> seq) =
         printfn "------------------\nCross Validation Metrics\n------------------"
@@ -95,5 +111,17 @@ type MlWrapper() =
         |> Seq.map (fun cvResult -> cvResult.Metrics.F1Score)
         |> Seq.average
         |> printfn "F1 Score: %f"
+
+        cvResults
+
+    member _.PrintMulticlassClassificationCvMetrics(cvResults: TrainCatalogBase.CrossValidationResult<MulticlassClassificationMetrics> seq) =
+        printfn "------------------\nCross Validation Metrics\n------------------"
+        cvResults
+        |> Seq.map (fun cvResult -> cvResult.Metrics.MacroAccuracy)
+        |> Seq.average
+        |> printfn "Accuracy: %f"; cvResults
+        |> Seq.map (fun cvResult -> cvResult.Metrics.LogLoss)
+        |> Seq.average
+        |> printfn "Log Loss: %f"
 
         cvResults
