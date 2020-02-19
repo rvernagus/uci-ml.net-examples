@@ -50,7 +50,7 @@ ENV DOTNET_RUNNING_IN_CONTAINER=true \
 RUN dotnet help
 
 # Copy notebooks
-
+RUN mkdir ${HOME}/notebooks/
 COPY ./notebooks/ ${HOME}/notebooks/
 
 # Copy package sources
