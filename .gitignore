@@ -332,3 +332,6 @@ ASALocalRun/
 # Data files
 *.data
 *.test
+
+# ipynb
+.ipynb_checkpoints/
