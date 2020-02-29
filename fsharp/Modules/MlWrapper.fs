@@ -1,6 +1,7 @@
 namespace FunctionalMl
 open Microsoft.ML
 open Microsoft.ML.Data
+open Microsoft.ML.Transforms
 open System.Collections.Generic
 
 module ML =
@@ -46,6 +47,15 @@ module ML =
 
     let onehot (column : string) =
         context.Transforms.Categorical.OneHotEncoding(column)
+
+    let pca inputColumnName outputColumnName rank =
+        context.Transforms.ProjectToPrincipalComponents(outputColumnName = outputColumnName, inputColumnName = inputColumnName, rank = rank, ensureZeroMean = true)
+
+    let replaceMissingWithDefault (inputColumn : string) (outputColumn : string) =
+        context.Transforms.ReplaceMissingValues(inputColumn, replacementMode = MissingValueReplacingEstimator.ReplacementMode.DefaultValue)
+
+    let replaceMissingWithMean (inputColumn : string) (outputColumn : string) =
+        context.Transforms.ReplaceMissingValues(inputColumn, replacementMode = MissingValueReplacingEstimator.ReplacementMode.Mean)
 
     let shuffle dataView =
         context.Data.ShuffleRows(dataView)
