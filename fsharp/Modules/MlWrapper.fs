@@ -39,6 +39,9 @@ module ML =
     let mapKeyToValue inputColumn outputColumn =
         context.Transforms.Conversion.MapKeyToValue(outputColumn, inputColumnName = inputColumn)
 
+    let normalizeBinning inputColumn outputColumn  =
+        context.Transforms.NormalizeBinning(outputColumnName = outputColumn, inputColumnName = inputColumn)
+
     let normalizeLp inputColumn outputColumn  =
         context.Transforms.NormalizeLpNorm(outputColumnName = outputColumn, inputColumnName = inputColumn)
 
